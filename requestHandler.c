@@ -9,25 +9,32 @@
 #include <dirent.h>
 #include "requestHandler.h"
 
+#include <openssl/rsa.h>
+#include <openssl/crypto.h>
+#include <openssl/x509.h>
+#include <openssl/pem.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+
 struct httpHeader
 {
-  char* name;
-  char* value;
+	char* name;
+	char* value;
 };
 
 struct fileInfo
 {
-  char* fileData;
-  long length;
+	char* fileData;
+	long length;
 };
 
 struct httpRequestMessage
 {
-  char* method;
-  char* httpVersion;
-  char* resource;
-  struct httpHeader headers[10];
-  char* body;
+	char* method;
+	char* httpVersion;
+	char* resource;
+	struct httpHeader headers[10];
+	char* body;
 };
 
 char* getDateTime();
@@ -38,87 +45,111 @@ struct httpRequestMessage* readMessage(char* MessageString);
 void dumpToFile(char* array, long length, const char* name);
 void printBytes(char* bytesArray, int count);
 bool isFolderPath(char* path);
-char* getStatusLine(char* code);
 
-void processRequest(char* request, int sock)
+
+void processRequest(char* request, int sock, SSL* ssl)
 {
+	int err;
 	struct httpRequestMessage* requestMessage = readMessage(request);
 
-	 //printf("[Handler] readMessage end.\n");
+	//printf("[Handler] readMessage end.\n");
 	if(requestMessage)
 	{
-	  struct fileInfo* file;
-	  char* resourceSegement = requestMessage->resource;
+		struct fileInfo* file;
+		char* resourceSegement = requestMessage->resource;
 
-	  if(isFolderPath(resourceSegement))
-	  {
-		  file= tryGetIndexFile(resourceSegement);
-	  }else
-	  {
-		  file= tryGetFile(resourceSegement);
-	  }
+		if(isFolderPath(resourceSegement))
+		{
+			file= tryGetIndexFile(resourceSegement);
+		}else
+		{
+			file= tryGetFile(resourceSegement);
+		}
 
-	 if(file->fileData)
-	 {
-		 char* contentType = "text/html";
+		if(file->fileData)
+		{
+			char* contentType = "text/html";
 
-		  char *dot = strrchr(resourceSegement, '.');
-		  //printf("[Handler] Extension: %s\n",dot);
-		  if (dot && !strcmp(dot, ".jpg"))
-		  {
-			  contentType = "image/jpeg";
-		  }else if (dot && !strcmp(dot, ".css"))
-		  {
-			  contentType = "text/css";
-		  }
+			char *dot = strrchr(resourceSegement, '.');
+			//printf("[Handler] Extension: %s\n",dot);
+			if (dot && !strcmp(dot, ".jpg"))
+			{
+				contentType = "image/jpeg";
+			}else if (dot && !strcmp(dot, ".css"))
+			{
+				contentType = "text/css";
+			}
 
-		  long contentLength = file->length;
-		  //dumpToFile(file.fileData,contentLength,"new1.jpg");
+			long contentLength = file->length;
+			//dumpToFile(file.fileData,contentLength,"new1.jpg");
 
-		  //printf("[Handler] Content Length: %ld\n",contentLength);
+			//printf("[Handler] Content Length: %ld\n",contentLength);
 
-		  char* responseFormat = "HTTP/1.1 200 OK\nServer: newServerinc\nContent-Type: %s\nContent-Length: %d\nConnection: Keep-Alive\nDate: %s\n\n";
-		  char* dateTime = getDateTime();
+			char* responseFormat = "HTTP/1.1 200 OK\nServer: newServerinc\nContent-Type: %s\nContent-Length: %d\nConnection: Keep-Alive\nDate: %s\n\n";
+			char* dateTime = getDateTime();
 
 
-		  char* response = calloc(strlen(responseFormat) + strlen(contentType)+ strlen(dateTime)+10,sizeof(char));
-		  sprintf(response,responseFormat, contentType,contentLength,dateTime);
+			char* response = calloc(strlen(responseFormat) + strlen(contentType)+ strlen(dateTime)+10,sizeof(char));
+			sprintf(response,responseFormat, contentType,contentLength,dateTime);
 
-		  //printf("[Handler] Response Without body: %zd\n",strlen(response));
+			//printf("[Handler] Response Without body: %zd\n",strlen(response));
 
-		  long finalLength =strlen(response)+contentLength+1;
-		  char* responseWithBody = calloc(finalLength,sizeof(int));
-		  strcat(responseWithBody,response);
+			long finalLength =strlen(response)+contentLength+1;
+			char* responseWithBody = calloc(finalLength,sizeof(int));
+			strcat(responseWithBody,response);
 
-		  memcpy(responseWithBody+strlen(response),file->fileData,contentLength);
+			memcpy(responseWithBody+strlen(response),file->fileData,contentLength);
 
-		  // dumpToFile(responseWithBody,"new2.jpg");
-		  //printf("[Handler] Response: %s\n",responseWithBody);
-	  	  write(sock , responseWithBody , finalLength);
+			// dumpToFile(responseWithBody,"new2.jpg");
+			printf("[Handler] Response: %s\n",responseWithBody);
+			//write(sock , responseWithBody , finalLength);
 
-	  	  // printBytes(responseWithBody,finalLength);
 
-	  	  //printf("[Handler] Bytes Written: %ld\n",written);
-	  	  shutdown(sock,SHUT_WR);
+			int written= SSL_write(ssl, responseWithBody, finalLength);  CHK_SSL(err);
 
-	  	  free(response);
-	  	  free(file->fileData);
-	  	  free(file);
-	  	  free(responseWithBody);
+			// printBytes(responseWithBody,finalLength);
 
-	 }else
-	 {
-		  char* responseFormat = "HTTP/1.1 404 Not Found\nServer: newServerinc\nDate: %s\n\n404 Not Found\n\n";
-		  char* dateTime = getDateTime();
+			printf("[Handler] Bytes Written: %d\n",written);
+			shutdown(sock,SHUT_WR);
 
-		  char* response = calloc(strlen(responseFormat) + strlen(dateTime)-1,sizeof(char));
-		  sprintf(response,responseFormat, dateTime);
-	 	  write(sock , response , strlen(response));
-		  shutdown(sock,SHUT_WR);
-		  free(response);
-	 }
+			//int sd = SSL_get_fd(ssl);       /* get socket connection */
+			//SSL_free(ssl);         /* release SSL state */
+			//close(sd);
+			CHK_SSL(err);
 
- 	  free(requestMessage);
+			/*--------------- SSL closure ---------------*/
+			/* Shutdown this side (server) of the connection. */
+
+			err = SSL_shutdown(ssl);
+
+			/* Terminate communication on a socket */
+			close(sock);
+
+			/* Free the SSL structure */
+			SSL_free(ssl);
+
+			/* Free the SSL_CTX structure */
+			//SSL_CTX_free(ctx);
+
+			free(response);
+			free(file->fileData);
+			free(file);
+			free(responseWithBody);
+
+		}else
+		{
+			char* responseFormat = "HTTP/1.1 404 Not Found\nServer: newServerinc\nDate: %s\n\n404 Not Found\n\n";
+			char* dateTime = getDateTime();
+
+			char* response = calloc(strlen(responseFormat) + strlen(dateTime)-1,sizeof(char));
+			sprintf(response,responseFormat, dateTime);
+			//write(sock , response , strlen(response));
+			SSL_write(ssl, response, strlen(response));  CHK_SSL(err);
+			shutdown(sock,SHUT_WR);
+			free(response);
+		}
+
+		free(requestMessage);
 	}
 
 }
@@ -166,28 +197,28 @@ struct fileInfo* tryGetIndexFile(char* url)
 
 	struct dirent *dir;
 	d = opendir(folderPath);
-	  if (d)
-	  {
-	    while ((dir = readdir(d)) != NULL)
-	    {
-	      //printf("%s\n", dir->d_name);
-	      if(strcmp(indexFileName,dir->d_name)==0)
-	      {
-	    	  char* fileFullPath = calloc(strlen(folderPath)+strlen(indexFileName)+1,sizeof(char));
-	    	  strcat(fileFullPath,folderPath);
-	    	  strcat (fileFullPath,indexFileName);
-	    	 // printf("[Handler] File Full Path: %s\n", fileFullPath);
-	    	  result = readFile(fileFullPath);
+	if (d)
+	{
+		while ((dir = readdir(d)) != NULL)
+		{
+			//printf("%s\n", dir->d_name);
+			if(strcmp(indexFileName,dir->d_name)==0)
+			{
+				char* fileFullPath = calloc(strlen(folderPath)+strlen(indexFileName)+1,sizeof(char));
+				strcat(fileFullPath,folderPath);
+				strcat (fileFullPath,indexFileName);
+				// printf("[Handler] File Full Path: %s\n", fileFullPath);
+				result = readFile(fileFullPath);
 
-	    	  free(fileFullPath);
-	    	  // printf("File: %s\n", result);
-	    	  break;
-	      }
+				free(fileFullPath);
+				// printf("File: %s\n", result);
+				break;
+			}
 
-	    }
+		}
 
-	    closedir(d);
-	  }
+		closedir(d);
+	}
 
 	free(folderPath);
 	return result;
@@ -215,27 +246,27 @@ struct fileInfo* readFile(char* path)
 
 	if (f)
 	{
-	  seekResult= fseek (f, 0, SEEK_END);
-	  if(seekResult==0)
-	  {
-	  length = ftell (f);
-	  //printf("[readFile] File Length: %ld\n", length);
+		seekResult= fseek (f, 0, SEEK_END);
+		if(seekResult==0)
+		{
+			length = ftell (f);
+			//printf("[readFile] File Length: %ld\n", length);
 
-	  if(length>0)
-	  {
-		  seekResult=  fseek (f, 0, SEEK_SET);
-		  if(seekResult==0)
-		  {
-			  buffer = (char*) malloc (sizeof(char)*length);
-			  //printf("[readFile] malloced \n");
-			  if (buffer)
-			  {
-				  fread (buffer, 1, length, f);
-				  //printf("[readFile] Read end \n");
-			  }
-		  }
-	  }
-	  }
+			if(length>0)
+			{
+				seekResult=  fseek (f, 0, SEEK_SET);
+				if(seekResult==0)
+				{
+					buffer = (char*) malloc (sizeof(char)*length);
+					//printf("[readFile] malloced \n");
+					if (buffer)
+					{
+						fread (buffer, 1, length, f);
+						//printf("[readFile] Read end \n");
+					}
+				}
+			}
+		}
 		fclose (f);
 	}
 
@@ -243,7 +274,7 @@ struct fileInfo* readFile(char* path)
 	file->fileData = buffer;
 	file->length = length;
 
-	 //printf("Bytes read: %ld\n", bytesActuallyRead);
+	//printf("Bytes read: %ld\n", bytesActuallyRead);
 	return file;
 }
 
@@ -253,7 +284,7 @@ void dumpToFile (char* array, long length, const char* name)
 
 	int results = fwrite(array, sizeof(array[0]), length, file);
 	if (results == EOF) {
-	    // Failed to write do error code here.
+		// Failed to write do error code here.
 	}
 	fclose(file);
 }
@@ -263,8 +294,8 @@ void printBytes(char* bytesArray, int count)
 	int  i =0;
 	while (i < count)
 	{
-	     printf("%02X",(int)bytesArray[i]);
-	     i++;
+		printf("%02X",(int)bytesArray[i]);
+		i++;
 	}
 }
 
@@ -279,7 +310,7 @@ bool isFolderPath(char* path)
 	d = opendir(folderPath);
 	if (d)
 	{
-	    //printf("[Handler] Request for folder\n");
+		//printf("[Handler] Request for folder\n");
 
 		free(folderPath);
 		closedir(d);
