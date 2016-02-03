@@ -20,7 +20,7 @@ void *connection_handler(void *);
 
 void* StartServer(void* vp)
 {
-    int socket_desc , client_sock , c , *new_sock, threadCount;
+    int socket_desc , client_sock , c , *new_sock;
     struct sockaddr_in server , client;
 
 
