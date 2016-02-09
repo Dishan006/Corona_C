@@ -1,3 +1,5 @@
-requestHandler.o: ../requestHandler.c ../requestHandler.h
+requestHandler.o: ../requestHandler.c ../utils.h ../requestHandler.h
+
+../utils.h:
 
 ../requestHandler.h:
