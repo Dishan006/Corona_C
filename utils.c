@@ -25,9 +25,9 @@ char* getDateTime()
 	return dateTime;
 }
 
-struct fileInfo* tryGetFile(char* path)
+fileInfo* tryGetFile(char* path)
 {
-	struct fileInfo* file;
+	fileInfo* file;
 	char* baseUrl = "/var/www";
 	char* fileFullPath = calloc(strlen(baseUrl)+strlen(path)+1,sizeof(char));
 	strcat(fileFullPath,baseUrl);
@@ -38,7 +38,7 @@ struct fileInfo* tryGetFile(char* path)
 }
 
 
-struct fileInfo* readFile(char* path)
+fileInfo* readFile(char* path)
 {
 	char* buffer = NULL;
 	long length =0;
@@ -72,7 +72,7 @@ struct fileInfo* readFile(char* path)
 		fclose (f);
 	}
 
-	struct fileInfo *file = malloc(sizeof(struct fileInfo));
+	fileInfo *file = malloc(sizeof(fileInfo));
 	file->fileData = buffer;
 	file->length = length;
 

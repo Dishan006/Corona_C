@@ -28,7 +28,7 @@ all: httpServerInC
 httpServerInC: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: GCC C Linker'
-	gcc -pthread -lm -o "httpServerInC" $(OBJS) $(USER_OBJS) $(LIBS)
+	gcc -pthread -lm -o "httpServerInC" $(OBJS) $(USER_OBJS) $(LIBS) -ldl
 	@echo 'Finished building target: $@'
 	@echo ' '
 

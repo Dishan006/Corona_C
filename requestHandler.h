@@ -8,6 +8,6 @@
 #ifndef REQUESTHANDLER_H_
 #define REQUESTHANDLER_H_
 
-void processRequest(char* request, int sock);
+void processRequestMessage(char* request, int sock);
 
 #endif /* REQUESTHANDLER_H_ */

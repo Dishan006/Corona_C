@@ -8,15 +8,15 @@
 
 #ifndef UTILS_H_
 #define UTILS_H_
-struct fileInfo
+typedef struct
 {
   char* fileData;
   long length;
-};
+}fileInfo;
 
 char* getDateTime();
-struct fileInfo* tryGetFile(char* path);
-struct fileInfo*  readFile(char* path);
+fileInfo* tryGetFile(char* path);
+fileInfo*  readFile(char* path);
 void dumpToFile(char* array, long length, const char* name);
 void printBytes(char* bytesArray, int count);
 bool isFolderPath(char* path);

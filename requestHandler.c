@@ -27,18 +27,18 @@ struct httpRequestMessage
 };
 
 
-struct fileInfo*  tryGetIndexFile(char* url);
+fileInfo*  tryGetIndexFile(char* url);
 struct httpRequestMessage* readMessage(char* MessageString);
 
 
-void processRequest(char* request, int sock)
+void processRequestMessage(char* request, int sock)
 {
 	struct httpRequestMessage* requestMessage = readMessage(request);
 
 	 //printf("[Handler] readMessage end.\n");
 	if(requestMessage)
 	{
-	  struct fileInfo* file;
+	  fileInfo* file;
 	  char* resourceSegement = requestMessage->resource;
 
 	  if(isFolderPath(resourceSegement))
@@ -135,10 +135,10 @@ struct httpRequestMessage* readMessage(char* MessageString)
 }
 
 
-struct fileInfo* tryGetIndexFile(char* url)
+fileInfo* tryGetIndexFile(char* url)
 {
 	DIR *d;
-	struct fileInfo* result;
+	fileInfo* result;
 	char* baseUrl = "/var/www";
 	char* indexFileName = "index.html";
 	char* folderPath = calloc(strlen(url)+strlen(baseUrl)+1,sizeof(char));
