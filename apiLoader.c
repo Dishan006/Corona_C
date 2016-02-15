@@ -15,7 +15,9 @@
 
 apiInfo* getApiInfo(char* configLine);
 
-apiInfoCollection* loadAPIs()
+static apiInfoCollection* apis;
+
+ void loadAPIs()
 {
 	fileInfo *info = readFile("/home/dishan/workspace/httpServerInC/config/apiConfig");
 	apiInfo **list= NULL;
@@ -39,7 +41,7 @@ apiInfoCollection* loadAPIs()
 	collection->apiInfo = list;
 	collection->count = count;
 
-	return collection;
+	apis= collection;
 }
 
 apiInfo* getApiInfo(char* configLine)
@@ -50,43 +52,43 @@ apiInfo* getApiInfo(char* configLine)
 	{
 		apiInfo* info = calloc(1,sizeof(apiInfo));
 		info->apiName = apiName;
-
-
-		void *handle;
-
-		char *error;
-
-		handle = dlopen(path, RTLD_LAZY);
-		if (!handle) {
-			fputs (dlerror(), stderr);
-			exit(1);
-		}
-
-		processRequest *request = dlsym(handle, "ProcessRequest");
-		if ((error = dlerror()) != NULL)  {
-			fputs(error, stderr);
-			exit(1);
-		}
-
-		info->method = request;
-		printf("API Name: %s ProcessRequest loaded!\n", apiName);
-
+		info->path = path;
+		printf("API Name: %s loaded!\n", apiName);
 		return info;
 	}
 
 	return NULL;
 }
 
-void freeAPIs(apiInfoCollection* collection)
+void freeAPIs()
 {
-	if(collection)
+	if(apis)
+	{
+
+		int i;
+		for(i=0;i<apis->count;i++)
+		{
+			free(apis->apiInfo[i]);
+		}
+		free(apis->apiInfo);
+		free(apis);
+	}
+}
+
+apiInfo* tryGetAPI(char* request)
+{
+	if(apis)
 	{
 		int i;
-		for(i=0;i<collection->count;i++)
+		for(i=0;i<apis->count;i++)
 		{
-			free(collection->apiInfo[i]);
+			char* currentAPI = apis->apiInfo[i]->apiName;
+			if(strncmp(request,currentAPI,strlen(currentAPI))==0)
+			{
+				return apis->apiInfo[i];
+			}
 		}
-		free(collection->apiInfo);
-		free(collection);
 	}
+
+	return NULL;
 }

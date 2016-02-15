@@ -11,7 +11,7 @@ typedef char* (*processRequest) (char*);
 
 typedef struct
 {
-	processRequest *method;
+	char* path;
 	char* apiName;
 } apiInfo;
 
@@ -22,6 +22,7 @@ typedef struct
 } apiInfoCollection;
 
 
-apiInfoCollection* loadAPIs();
-void freeAPIs(apiInfoCollection* collection);
+void loadAPIs();
+void freeAPIs();
+apiInfo* tryGetAPI(char* request);
 #endif /* APILOADER_H_ */

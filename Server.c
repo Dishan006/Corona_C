@@ -56,7 +56,7 @@ void* StartServer(void* vp)
 	client_sock=1;
 
 	int abortState = getStopIssued();
-	apiInfoCollection* apis= loadAPIs();
+	loadAPIs();
 
 	while( client_sock>0 && abortState!=1)
 	{
@@ -101,7 +101,7 @@ void* StartServer(void* vp)
 		puts("Abort signal received.");
 	}
 
-	freeAPIs(apis);
+	freeAPIs();
 	puts("Server Stopped");
 	return 0;
 }
