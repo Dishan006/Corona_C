@@ -43,6 +43,8 @@ void* StartServer(void* vp)
 	{
 		//print the error message
 		perror("bind failed. Error");
+
+		return 0;
 	}
 
 	puts("bind done");
@@ -122,7 +124,7 @@ void *connection_handler(void *socket_desc)
 
 	if(read_size>0)
 	{
-		printf("[Handler] Request: %s",client_message);
+		printf("[Handler] Request: %s\n\n",client_message);
 		processRequestMessage(client_message, sock);
 	}
 

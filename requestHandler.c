@@ -12,31 +12,33 @@
 #include "requestHandler.h"
 #include "apiLoader.h"
 
-struct httpHeader
+typedef struct
 {
 	char* name;
 	char* value;
-};
+}httpHeader;
 
 
-struct httpRequestMessage
+typedef struct
 {
 	char* method;
 	char* httpVersion;
 	char* resource;
-	struct httpHeader headers[10];
+	httpHeader** headers;
+	int headerCount;
 	char* body;
-};
+}httpRequestMessage;
 
 
 fileInfo*  tryGetIndexFile(char* url);
-struct httpRequestMessage* readMessage(char* MessageString);
+httpRequestMessage* readMessage(char* MessageString);
 bool isAPIRequest(char* MessageString);
-void processAPIRequest(char* messageString);
+void processAPIRequest(httpRequestMessage* message, int sock);
+httpHeader* getHeaderFromString(char* headerLine);
 
 void processRequestMessage(char* request, int sock)
 {
-	struct httpRequestMessage* requestMessage = readMessage(request);
+	httpRequestMessage* requestMessage = readMessage(request);
 
 	//printf("[Handler] readMessage end.\n");
 	if(requestMessage)
@@ -46,7 +48,7 @@ void processRequestMessage(char* request, int sock)
 
 		if(isAPIRequest(resourceSegement))
 		{
-			processAPIRequest(resourceSegement);
+			processAPIRequest(requestMessage, sock);
 		}else
 		{
 
@@ -118,27 +120,93 @@ void processRequestMessage(char* request, int sock)
 				free(response);
 			}
 		}
+		free(requestMessage->headers);
+		free(requestMessage->body);
 		free(requestMessage);
 	}
 
 }
 
-struct httpRequestMessage* readMessage(char* MessageString)
+httpRequestMessage* readMessage(char* MessageString)
 {
-	struct httpRequestMessage* message = malloc(sizeof(struct httpRequestMessage));
+	httpRequestMessage* message = malloc(sizeof(httpRequestMessage));
+	message->headers = NULL;
+	message->headerCount =0;
 	if(strncmp(MessageString,"GET",3)==0)
 	{
 		message->method = "GET";
+		MessageString+=3;
 	}else if(strncmp(MessageString,"POST",4)==0)
 	{
 		message->method = "POST";
+		MessageString+=4;
+	}else if(strncmp(MessageString,"PATCH",5)==0)
+	{
+		message->method = "PATCH";
+		MessageString+=5;
+	}else if(strncmp(MessageString,"DELETE",6)==0)
+	{
+		message->method = "DELETE";
+		MessageString+=6;
+	}else
+	{
+		return NULL;
 	}
-	// printf("[Handler] readMessage Method found.\n");
 
-	char* resourceSegement = strtok(MessageString," ");
-	resourceSegement = strtok(NULL," ");
-	message->resource = resourceSegement;
+	char *save;
+
+	char* firstLine = strtok_r(MessageString,"\n", &save);
+
+	char* nextLine = NULL;
+	char* body = NULL;
+	int headerCount =0;
+	int headersFinished =0;
+	do
+	{
+		nextLine = strtok_r(NULL,"\n", &save);
+		if(nextLine)
+		{
+			if(headersFinished == 1)
+			{
+				int newLegth = strlen(nextLine);
+				int oldLength =0;
+
+				if(body)
+				{
+					oldLength = strlen(body);
+					newLegth+=oldLength;
+				}
+
+				body = realloc(body,(newLegth+1)*sizeof(char));
+				strcpy (body+ oldLength,nextLine);
+
+				body[newLegth] = '\0';
+			}else
+			{
+				if(headersFinished == 0)
+				{
+					if(strlen(nextLine)==1)
+					{
+						headersFinished =1;
+						continue;
+					}
+
+					headerCount++;
+					httpHeader* header = getHeaderFromString(strdup(nextLine));
+					message->headers = realloc(message->headers,headerCount*sizeof(httpHeader*));
+					message->headers[headerCount-1] = header;
+				}
+			}
+		}
+	}while(nextLine);
+
+	message->resource = strtok(firstLine," ");
 	message->httpVersion = strtok(NULL," ");
+	message->headerCount = headerCount;
+	message->body = body;
+
+	printf("[readMessage] header Count :%d\n",headerCount);
+	printf("[readMessage] body :%s\n",body);
 
 	return message;
 }
@@ -189,20 +257,18 @@ bool isAPIRequest(char* MessageString)
 	return strncmp(MessageString,"/api/",5)==0;
 }
 
-void processAPIRequest(char* messageString)
+void processAPIRequest(httpRequestMessage* message, int sock)
 {
+	char* messageString = message->resource;
 	messageString = messageString+5;
-	printf("[API] %s\n",messageString);
 	char* apiName = strtok(messageString, "/");
-
-	printf("[API NAME] %s\n",apiName);
+	char* resource = strtok(NULL, " ");
 	apiInfo* api = tryGetAPI(apiName);
 	if(api)
 	{
-		printf("[API Found]\n");
-		messageString = messageString+strlen(apiName);
+		//messageString = messageString+strlen(apiName);
 		void *handle;
-		char* (*processRequest) (char*);
+		const char* (*processRequest) (char*,char*);
 		char *error;
 
 		handle = dlopen(api->path, RTLD_LAZY);
@@ -218,9 +284,35 @@ void processAPIRequest(char* messageString)
 		}
 
 		//(*hello)();
-		char* result = processRequest(messageString);
+		const char* result = processRequest(resource, message->method);
 		printf("[API Result] %s\n",result);
 		dlclose(handle);
+		char* contentType = "application/json";
 
+
+		long contentLength = strlen(result);
+
+		char* responseFormat = "HTTP/1.1 200 OK\nServer: newServerinc\nContent-Type: %s\nContent-Length: %d\nConnection: Keep-Alive\nDate: %s\n\n%s";
+		char* dateTime = getDateTime();
+
+
+		char* response = calloc(strlen(responseFormat) + strlen(contentType)+ strlen(dateTime)+contentLength+10,sizeof(char));
+		sprintf(response,responseFormat, contentType,contentLength,dateTime,result);
+
+
+		//memcpy(responseWithBody+strlen(response),result,contentLength);
+		printf("[Handler] Response With body: %s\n",response);
+
+		write(sock , response , strlen(response));
+		shutdown(sock,SHUT_WR);
+		free(response);
 	}
+}
+
+httpHeader* getHeaderFromString(char* headerLine)
+{
+	httpHeader* header = malloc(sizeof(httpHeader));
+	header->name = strtok(headerLine,":");
+	header->value = strtok(NULL,":");
+	return header;
 }
