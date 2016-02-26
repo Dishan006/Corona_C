@@ -35,6 +35,7 @@ httpRequestMessage* readMessage(char* MessageString);
 bool isAPIRequest(char* MessageString);
 void processAPIRequest(httpRequestMessage* message, int sock);
 httpHeader* getHeaderFromString(char* headerLine);
+void sendNotFound(int sock);
 
 void processRequestMessage(char* request, int sock)
 {
@@ -110,14 +111,7 @@ void processRequestMessage(char* request, int sock)
 
 			}else
 			{
-				char* responseFormat = "HTTP/1.1 404 Not Found\nServer: newServerinc\nDate: %s\n\n404 Not Found\n\n";
-				char* dateTime = getDateTime();
-
-				char* response = calloc(strlen(responseFormat) + strlen(dateTime)-1,sizeof(char));
-				sprintf(response,responseFormat, dateTime);
-				write(sock , response , strlen(response));
-				shutdown(sock,SHUT_WR);
-				free(response);
+				sendNotFound(sock);
 			}
 		}
 		free(requestMessage->headers);
@@ -125,6 +119,17 @@ void processRequestMessage(char* request, int sock)
 		free(requestMessage);
 	}
 
+}
+
+void sendNotFound(int sock)
+{
+	char* responseFormat = "HTTP/1.1 404 Not Found\nServer: newServerinc\nDate: %s\n\n404 Not Found\n\n";
+	char* dateTime = getDateTime();
+	char* response = calloc(strlen(responseFormat) + strlen(dateTime)-1,sizeof(char));
+	sprintf(response,responseFormat, dateTime);
+	write(sock , response , strlen(response));
+	shutdown(sock,SHUT_WR);
+	free(response);
 }
 
 httpRequestMessage* readMessage(char* MessageString)
@@ -268,7 +273,7 @@ void processAPIRequest(httpRequestMessage* message, int sock)
 	{
 		//messageString = messageString+strlen(apiName);
 		void *handle;
-		const char* (*processRequest) (char*,char*);
+		const char* (*processRequest) (char*,char*,char*,char**,int);
 		char *error;
 
 		handle = dlopen(api->path, RTLD_LAZY);
@@ -283,8 +288,21 @@ void processAPIRequest(httpRequestMessage* message, int sock)
 			exit(1);
 		}
 
+
+		char** headers = calloc(message->headerCount,sizeof(char*));
+
+		int i;
+
+		for(i= 0;i<message->headerCount;i++)
+		{
+			char* headerFormat = "%s : %s";
+			char* header = calloc(strlen(headerFormat)+strlen(message->headers[i]->name)+strlen(message->headers[i]->value)-2,sizeof(char));
+			sprintf(header,headerFormat, message->headers[i]->name,message->headers[i]->value);
+			headers[i] = header;
+		}
+
 		//(*hello)();
-		const char* result = processRequest(resource, message->method);
+		const char* result = processRequest(resource, message->method,message->body,headers,message->headerCount);
 		printf("[API Result] %s\n",result);
 		dlclose(handle);
 		char* contentType = "application/json";
@@ -306,6 +324,9 @@ void processAPIRequest(httpRequestMessage* message, int sock)
 		write(sock , response , strlen(response));
 		shutdown(sock,SHUT_WR);
 		free(response);
+	}else
+	{
+		sendNotFound(sock);
 	}
 }
 
