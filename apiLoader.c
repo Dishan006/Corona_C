@@ -17,16 +17,19 @@ apiInfo* getApiInfo(char* configLine);
 
 static apiInfoCollection* apis;
 
- void loadAPIs()
+void loadAPIs()
 {
 	fileInfo *info = readFile("/home/dishan/workspace/httpServerInC/config/apiConfig");
 	apiInfo **list= NULL;
 	list = malloc(sizeof(apiInfo*)*5);
 	int count=0;
+	int processedLength =0;
+	char* saveTok;
 
-	char* configLine = strtok(info->fileData, "\n");
+	char* configLine = strtok_r(info->fileData, "\n",&saveTok);
 	while (configLine) {
 		printf("Loading API: %s\n", configLine);
+		processedLength+= strlen(configLine);
 		apiInfo *item = getApiInfo(configLine);
 		if(item)
 		{
@@ -34,7 +37,11 @@ static apiInfoCollection* apis;
 			count++;
 		}
 
-		configLine = strtok(NULL, "\n");
+		if(processedLength+count<info->length)
+		{
+			configLine = strtok_r(NULL, "\n",&saveTok);
+		}else
+			break;
 	}
 
 	apiInfoCollection* collection = calloc(sizeof(apiInfoCollection),1);
@@ -46,8 +53,9 @@ static apiInfoCollection* apis;
 
 apiInfo* getApiInfo(char* configLine)
 {
-	char* apiName = strtok(configLine, ":");
-	char* path = strtok(NULL, ":");
+	char* saveSeg;
+	char* apiName = strtok_r(configLine, ":",&saveSeg);
+	char* path = strtok_r(NULL, ":",&saveSeg);
 	if(apiName && path)
 	{
 		apiInfo* info = calloc(1,sizeof(apiInfo));
