@@ -9,6 +9,7 @@ C_SRCS += \
 ../base64.c \
 ../main.c \
 ../requestHandler.c \
+../responseWriter.c \
 ../utils.c 
 
 OBJS += \
@@ -17,6 +18,7 @@ OBJS += \
 ./base64.o \
 ./main.o \
 ./requestHandler.o \
+./responseWriter.o \
 ./utils.o 
 
 C_DEPS += \
@@ -25,6 +27,7 @@ C_DEPS += \
 ./base64.d \
 ./main.d \
 ./requestHandler.d \
+./responseWriter.d \
 ./utils.d 
 
 

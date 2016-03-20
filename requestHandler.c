@@ -11,6 +11,7 @@
 #include "utils.h"
 #include "requestHandler.h"
 #include "apiLoader.h"
+#include "responseWriter.h"
 
 typedef struct
 {
@@ -35,7 +36,7 @@ httpRequestMessage* readMessage(char* MessageString);
 bool isAPIRequest(char* MessageString);
 void processAPIRequest(httpRequestMessage* message, int sock);
 httpHeader* getHeaderFromString(char* headerLine);
-void sendNotFound(int sock);
+
 
 void processRequestMessage(char* request, int sock)
 {
@@ -61,7 +62,7 @@ void processRequestMessage(char* request, int sock)
 				file= tryGetFile(resourceSegement);
 			}
 
-			if(file->fileData)
+			if(file && file->fileData)
 			{
 				char* contentType = "text/html";
 
@@ -75,43 +76,14 @@ void processRequestMessage(char* request, int sock)
 					contentType = "text/css";
 				}
 
-				long contentLength = file->length;
-				//dumpToFile(file.fileData,contentLength,"new1.jpg");
+				WriteResponse(sock,false,200,contentType,file->length,file->fileData);
 
-				//printf("[Handler] Content Length: %ld\n",contentLength);
-
-				char* responseFormat = "HTTP/1.1 200 OK\nServer: newServerinc\nContent-Type: %s\nContent-Length: %d\nConnection: Keep-Alive\nDate: %s\n\n";
-				char* dateTime = getDateTime();
-
-
-				char* response = calloc(strlen(responseFormat) + strlen(contentType)+ strlen(dateTime)+10,sizeof(char));
-				sprintf(response,responseFormat, contentType,contentLength,dateTime);
-
-				//printf("[Handler] Response Without body: %zd\n",strlen(response));
-
-				long finalLength =strlen(response)+contentLength+1;
-				char* responseWithBody = calloc(finalLength,sizeof(int));
-				strcat(responseWithBody,response);
-
-				memcpy(responseWithBody+strlen(response),file->fileData,contentLength);
-
-				// dumpToFile(responseWithBody,"new2.jpg");
-				//printf("[Handler] Response: %s\n",responseWithBody);
-				write(sock , responseWithBody , finalLength);
-
-				// printBytes(responseWithBody,finalLength);
-
-				//printf("[Handler] Bytes Written: %ld\n",written);
-				shutdown(sock,SHUT_WR);
-
-				free(response);
 				free(file->fileData);
 				free(file);
-				free(responseWithBody);
 
 			}else
 			{
-				sendNotFound(sock);
+				WriteResponse(sock,false,404,NULL,0,NULL);
 			}
 		}
 		free(requestMessage->headers);
@@ -121,16 +93,7 @@ void processRequestMessage(char* request, int sock)
 
 }
 
-void sendNotFound(int sock)
-{
-	char* responseFormat = "HTTP/1.1 404 Not Found\nServer: newServerinc\nDate: %s\n\n404 Not Found\n\n";
-	char* dateTime = getDateTime();
-	char* response = calloc(strlen(responseFormat) + strlen(dateTime)-1,sizeof(char));
-	sprintf(response,responseFormat, dateTime);
-	write(sock , response , strlen(response));
-	shutdown(sock,SHUT_WR);
-	free(response);
-}
+
 
 httpRequestMessage* readMessage(char* MessageString)
 {
@@ -273,7 +236,7 @@ void processAPIRequest(httpRequestMessage* message, int sock)
 	{
 		//messageString = messageString+strlen(apiName);
 		void *handle;
-		const char* (*processRequest) (char*,char*,char*,char**,int);
+		int (*processRequest) (char*,char*,char*,char**,int, char**);
 		char *error;
 
 		handle = dlopen(api->path, RTLD_LAZY);
@@ -302,31 +265,17 @@ void processAPIRequest(httpRequestMessage* message, int sock)
 		}
 
 		//(*hello)();
-		const char* result = processRequest(resource, message->method,message->body,headers,message->headerCount);
-		printf("[API Result] %s\n",result);
+		char **result = calloc(1,sizeof(char*));
+		int returnCode = processRequest(resource, message->method,message->body,headers,message->headerCount,result);
+		printf("[API Result] %s Return: %d\n",*result,returnCode);
 		dlclose(handle);
-		char* contentType = "application/json";
+		WriteResponse(sock,true,returnCode,NULL,0,*result);
 
-
-		long contentLength = strlen(result);
-
-		char* responseFormat = "HTTP/1.1 200 OK\nServer: newServerinc\nContent-Type: %s\nContent-Length: %d\nConnection: Keep-Alive\nDate: %s\n\n%s";
-		char* dateTime = getDateTime();
-
-
-		char* response = calloc(strlen(responseFormat) + strlen(contentType)+ strlen(dateTime)+contentLength+10,sizeof(char));
-		sprintf(response,responseFormat, contentType,contentLength,dateTime,result);
-
-
-		//memcpy(responseWithBody+strlen(response),result,contentLength);
-		printf("[Handler] Response With body: %s\n",response);
-
-		write(sock , response , strlen(response));
-		shutdown(sock,SHUT_WR);
-		free(response);
+		free(result);
+		free(*headers);
 	}else
 	{
-		sendNotFound(sock);
+		WriteResponse(sock,false,404,NULL,0,NULL);
 	}
 }
 

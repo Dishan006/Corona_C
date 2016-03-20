@@ -60,7 +60,7 @@ char *base64_encode(unsigned char *data,
 }
 
 
-/*unsigned char *base64_decode(const char *data,
+unsigned char *base64_decode(const char *data,
                              size_t input_length,
                              size_t *output_length) {
 
@@ -98,7 +98,6 @@ char *base64_encode(unsigned char *data,
 
     return decoded_data;
 }
- */
 
 void build_decoding_table() {
 
