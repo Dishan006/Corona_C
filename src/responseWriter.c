@@ -6,30 +6,24 @@
  *      Author: dishan
  */
 
-#include "responseWriter.h"
+#include "../Include/responseWriter.h"
 #include<stdio.h>
 #include<string.h>
 #include<stdlib.h>
 #include<stdbool.h>
 #include<sys/socket.h>
 #include<arpa/inet.h>
-#include "utils.h"
+#include "../Include/utils.h"
 #include<unistd.h>
 
-void sendNotFound(int sock);
-void sendBadRequest(int sock);
-void sendError(int sock,char* responseFormat);
+
+void sendError(int sock,int code);
 void sendApiOkResponse(int socket, char* result);
 void sendSiteOkResponse(int socket, char* contentType, int responseLength, char* result);
 
 void WriteResponse(int socket, bool isApiRequest, int statusCode,char* contentType, int responseLength, char* responseBody)
 {
-
-	if(statusCode == 404)
-	{
-		sendNotFound(socket);
-		return;
-	}else if (statusCode == 200)
+	if (statusCode == 200)
 	{
 		if(isApiRequest)
 		{
@@ -41,30 +35,35 @@ void WriteResponse(int socket, bool isApiRequest, int statusCode,char* contentTy
 		return;
 	}
 
-	sendBadRequest(socket);
+	sendError(socket, statusCode);
 }
 
-
-void sendNotFound(int sock)
+void sendError(int sock, int code)
 {
-	char* responseFormat = "HTTP/1.1 404 Not Found\nServer: newServerinc\nDate: %s\n\n404 Not Found\n\n";
-	sendError(sock,responseFormat);
-}
+	char* responseFormat = NULL;
 
-void sendBadRequest(int sock)
-{
-	char* responseFormat = "HTTP/1.1 400 Bad Request\nServer: newServerinc\nDate: %s\n\n400 Bad Request\n\n";
-	sendError(sock,responseFormat);
-}
+	switch (code) {
+	case 400:
+		responseFormat = "HTTP/1.1 400 Bad Request\nServer: newServerinc\nDate: %s\n\n400 Bad Request\n\n";
+		break;
+	case 403:
+		responseFormat = "HTTP/1.1 403 Forbidden\nServer: newServerinc\nDate: %s\n\n403 Forbidden\n\n";
+		break;
+	case 404:
+		responseFormat = "HTTP/1.1 404 Not Found\nServer: newServerinc\nDate: %s\n\n404 Not Found\n\n";
+		break;
+	default:
+		responseFormat = "HTTP/1.1 400 Bad Request\nServer: newServerinc\nDate: %s\n\n400 Bad Request\n\n";
+		break;
+	}
 
-void sendError(int sock, char* responseFormat)
-{
 	char* dateTime = getDateTime();
 	char* response = calloc(strlen(responseFormat) + strlen(dateTime)-1,sizeof(char));
 	sprintf(response,responseFormat, dateTime);
 	write(sock , response , strlen(response));
 	shutdown(sock,SHUT_WR);
 	free(response);
+	free(dateTime);
 }
 
 void sendApiOkResponse(int socket, char* result)
@@ -83,6 +82,7 @@ void sendApiOkResponse(int socket, char* result)
 	write(socket , response , strlen(response));
 	shutdown(socket,SHUT_WR);
 	free(response);
+	free(dateTime);
 }
 
 void sendSiteOkResponse(int socket, char* contentType, int responseLength, char* result)
@@ -120,5 +120,6 @@ void sendSiteOkResponse(int socket, char* contentType, int responseLength, char*
 
 	free(response);
 	free(responseWithBody);
+	free(dateTime);
 
 }

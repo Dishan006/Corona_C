@@ -12,7 +12,7 @@
 #include<pthread.h>
 #include <dirent.h>
 
-#include "utils.h"
+#include "../Include/utils.h"
 
 
 char* getDateTime()
@@ -35,6 +35,47 @@ fileInfo* tryGetFile(char* path)
 	file= readFile(fileFullPath);
 	free(fileFullPath);
 	return file;
+}
+
+
+fileInfo* tryGetIndexFile(char* url)
+{
+	DIR *d =NULL;
+	fileInfo* result = NULL;
+	char* baseUrl = "/var/www";
+	char* indexFileName = "index.html";
+	char* folderPath = calloc(strlen(url)+strlen(baseUrl)+1,sizeof(char));
+	strcat(folderPath,baseUrl);
+	strcat (folderPath,url);
+	//printf("[Handler] Resource Folder Path:%s\n",folderPath);
+
+	struct dirent *dir;
+	d = opendir(folderPath);
+	if (d)
+	{
+		while ((dir = readdir(d)) != NULL)
+		{
+			//printf("%s\n", dir->d_name);
+			if(strcmp(indexFileName,dir->d_name)==0)
+			{
+				char* fileFullPath = calloc(strlen(folderPath)+strlen(indexFileName)+1,sizeof(char));
+				strcat(fileFullPath,folderPath);
+				strcat (fileFullPath,indexFileName);
+				// printf("[Handler] File Full Path: %s\n", fileFullPath);
+				result = readFile(fileFullPath);
+
+				free(fileFullPath);
+				// printf("File: %s\n", result);
+				break;
+			}
+
+		}
+
+		closedir(d);
+	}
+
+	free(folderPath);
+	return result;
 }
 
 

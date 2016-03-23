@@ -10,8 +10,8 @@
 #include<string.h>
 #include<stdlib.h>
 #include <dlfcn.h>
-#include "utils.h"
-#include "apiLoader.h"
+#include "../Include/utils.h"
+#include "../Include/apiLoader.h"
 
 apiInfo* getApiInfo(char* configLine);
 

@@ -16,6 +16,7 @@ typedef struct
 
 char* getDateTime();
 fileInfo* tryGetFile(char* path);
+fileInfo*  tryGetIndexFile(char* url);
 fileInfo*  readFile(char* path);
 void dumpToFile(char* array, long length, const char* name);
 void printBytes(char* bytesArray, int count);

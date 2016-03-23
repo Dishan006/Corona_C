@@ -1,3 +1,5 @@
+
+
 #include<stdio.h>
 #include<string.h>
 #include<stdlib.h>
@@ -6,10 +8,11 @@
 #include<arpa/inet.h>
 #include<unistd.h>
 #include<pthread.h>
-#include "Server.h"
 #include <dirent.h>
-#include "apiLoader.h"
-#include "requestHandler.h"
+#include "../Include/apiLoader.h"
+#include "../Include/requestHandler.h"
+#include "../Include/server.h"
+#include "../Include/serverCache.h"
 
 
 int stopIssued = 0;
@@ -59,6 +62,7 @@ void* StartServer(void* vp)
 
 	int abortState = getStopIssued();
 	loadAPIs();
+	initializeCache();
 
 	while( client_sock>0 && abortState!=1)
 	{
@@ -104,6 +108,7 @@ void* StartServer(void* vp)
 	}
 
 	freeAPIs();
+	cleanCache();
 	puts("Server Stopped");
 	return 0;
 }

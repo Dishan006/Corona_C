@@ -9,7 +9,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "base64.h"
+#include "../Include/base64.h"
 
 
 static char encoding_table[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',

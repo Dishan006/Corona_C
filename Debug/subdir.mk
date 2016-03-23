@@ -4,7 +4,7 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
-../Server.c \
+../server.c \
 ../apiLoader.c \
 ../base64.c \
 ../main.c \
@@ -13,7 +13,7 @@ C_SRCS += \
 ../utils.c 
 
 OBJS += \
-./Server.o \
+./server.o \
 ./apiLoader.o \
 ./base64.o \
 ./main.o \
@@ -22,7 +22,7 @@ OBJS += \
 ./utils.o 
 
 C_DEPS += \
-./Server.d \
+./server.d \
 ./apiLoader.d \
 ./base64.d \
 ./main.d \

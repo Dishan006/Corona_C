@@ -8,10 +8,11 @@
 #include<pthread.h>
 #include <dirent.h>
 #include <dlfcn.h>
-#include "utils.h"
-#include "requestHandler.h"
-#include "apiLoader.h"
-#include "responseWriter.h"
+#include "../Include/utils.h"
+#include "../Include/requestHandler.h"
+#include "../Include/apiLoader.h"
+#include "../Include/responseWriter.h"
+#include "../Include/serverCache.h"
 
 typedef struct
 {
@@ -31,7 +32,7 @@ typedef struct
 }httpRequestMessage;
 
 
-fileInfo*  tryGetIndexFile(char* url);
+
 httpRequestMessage* readMessage(char* MessageString);
 bool isAPIRequest(char* MessageString);
 void processAPIRequest(httpRequestMessage* message, int sock);
@@ -45,28 +46,21 @@ void processRequestMessage(char* request, int sock)
 	//printf("[Handler] readMessage end.\n");
 	if(requestMessage)
 	{
-		fileInfo* file;
-		char* resourceSegement = requestMessage->resource;
+		fileInfo* file = NULL;
+		char* resourceSegment = requestMessage->resource;
 
-		if(isAPIRequest(resourceSegement))
+		if(isAPIRequest(resourceSegment))
 		{
 			processAPIRequest(requestMessage, sock);
 		}else
 		{
+			file = getFileFromCache(resourceSegment);
 
-			if(isFolderPath(resourceSegement))
-			{
-				file= tryGetIndexFile(resourceSegement);
-			}else
-			{
-				file= tryGetFile(resourceSegement);
-			}
-
-			if(file && file->fileData)
+			if(resourceSegment && file && file->fileData)
 			{
 				char* contentType = "text/html";
 
-				char *dot = strrchr(resourceSegement, '.');
+				char *dot = strrchr(resourceSegment, '.');
 				//printf("[Handler] Extension: %s\n",dot);
 				if (dot && !strcmp(dot, ".jpg"))
 				{
@@ -78,19 +72,22 @@ void processRequestMessage(char* request, int sock)
 
 				WriteResponse(sock,false,200,contentType,file->length,file->fileData);
 
-				free(file->fileData);
-				free(file);
-
 			}else
 			{
 				WriteResponse(sock,false,404,NULL,0,NULL);
 			}
 		}
+		int i;
+		for(i= 0;i<requestMessage->headerCount;i++)
+		{
+			free(requestMessage->headers[i]->name);
+			free(requestMessage->headers[i]->value);
+			free(requestMessage->headers[i]);
+		}
 		free(requestMessage->headers);
 		free(requestMessage->body);
 		free(requestMessage);
 	}
-
 }
 
 
@@ -180,46 +177,6 @@ httpRequestMessage* readMessage(char* MessageString)
 }
 
 
-fileInfo* tryGetIndexFile(char* url)
-{
-	DIR *d;
-	fileInfo* result;
-	char* baseUrl = "/var/www";
-	char* indexFileName = "index.html";
-	char* folderPath = calloc(strlen(url)+strlen(baseUrl)+1,sizeof(char));
-	strcat(folderPath,baseUrl);
-	strcat (folderPath,url);
-	//printf("[Handler] Resource Folder Path:%s\n",folderPath);
-
-	struct dirent *dir;
-	d = opendir(folderPath);
-	if (d)
-	{
-		while ((dir = readdir(d)) != NULL)
-		{
-			//printf("%s\n", dir->d_name);
-			if(strcmp(indexFileName,dir->d_name)==0)
-			{
-				char* fileFullPath = calloc(strlen(folderPath)+strlen(indexFileName)+1,sizeof(char));
-				strcat(fileFullPath,folderPath);
-				strcat (fileFullPath,indexFileName);
-				// printf("[Handler] File Full Path: %s\n", fileFullPath);
-				result = readFile(fileFullPath);
-
-				free(fileFullPath);
-				// printf("File: %s\n", result);
-				break;
-			}
-
-		}
-
-		closedir(d);
-	}
-
-	free(folderPath);
-	return result;
-}
-
 bool isAPIRequest(char* MessageString)
 {
 	return strncmp(MessageString,"/api/",5)==0;
@@ -264,7 +221,6 @@ void processAPIRequest(httpRequestMessage* message, int sock)
 			headers[i] = header;
 		}
 
-		//(*hello)();
 		char **result = calloc(1,sizeof(char*));
 		int returnCode = processRequest(resource, message->method,message->body,headers,message->headerCount,result);
 		printf("[API Result] %s Return: %d\n",*result,returnCode);
@@ -272,7 +228,12 @@ void processAPIRequest(httpRequestMessage* message, int sock)
 		WriteResponse(sock,true,returnCode,NULL,0,*result);
 
 		free(result);
+		for(i= 0;i<message->headerCount;i++)
+		{
+			free(headers[i]);
+		}
 		free(*headers);
+		free(headers);
 	}else
 	{
 		WriteResponse(sock,false,404,NULL,0,NULL);

@@ -3,7 +3,8 @@
 #include<string.h>
 #include<pthread.h>
 #include <unistd.h>
-#include "Server.h"
+
+#include "../Include/server.h"
 
 
 int main()
