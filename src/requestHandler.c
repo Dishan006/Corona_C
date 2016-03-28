@@ -81,7 +81,6 @@ void processRequestMessage(char* request, int sock)
 		for(i= 0;i<requestMessage->headerCount;i++)
 		{
 			free(requestMessage->headers[i]->name);
-			free(requestMessage->headers[i]->value);
 			free(requestMessage->headers[i]);
 		}
 		free(requestMessage->headers);
@@ -232,7 +231,6 @@ void processAPIRequest(httpRequestMessage* message, int sock)
 		{
 			free(headers[i]);
 		}
-		free(*headers);
 		free(headers);
 	}else
 	{

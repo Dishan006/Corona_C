@@ -17,6 +17,7 @@
 
 int stopIssued = 0;
 pthread_mutex_t stopMutex;
+int socket_desc;
 
 //the thread function
 void *connection_handler(void *);
@@ -24,9 +25,8 @@ void *connection_handler(void *);
 
 void* StartServer(void* vp)
 {
-	int socket_desc , client_sock , c , *new_sock;
+	int client_sock , c , *new_sock;
 	struct sockaddr_in server , client;
-
 
 	//Create socket
 	socket_desc = socket(AF_INET , SOCK_STREAM , 0);
@@ -153,6 +153,15 @@ int getStopIssued(void) {
 void setStopIssued(int val) {
 	pthread_mutex_lock(&stopMutex);
 	stopIssued = val;
+
+	if(stopIssued==1)
+	{
+		shutdown(socket_desc,SHUT_RDWR);
+		close(socket_desc);
+		freeAPIs();
+		cleanCache();
+		puts("Server Stopped");
+	}
 	pthread_mutex_unlock(&stopMutex);
 }
 

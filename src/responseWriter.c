@@ -61,7 +61,8 @@ void sendError(int sock, int code)
 	char* response = calloc(strlen(responseFormat) + strlen(dateTime)-1,sizeof(char));
 	sprintf(response,responseFormat, dateTime);
 	write(sock , response , strlen(response));
-	shutdown(sock,SHUT_WR);
+	shutdown(sock,SHUT_RDWR);
+	close(sock);
 	free(response);
 	free(dateTime);
 }
@@ -80,7 +81,8 @@ void sendApiOkResponse(int socket, char* result)
 	printf("[Handler] Response With body: %s\n",response);
 
 	write(socket , response , strlen(response));
-	shutdown(socket,SHUT_WR);
+	shutdown(socket,SHUT_RDWR);
+	close(socket);
 	free(response);
 	free(dateTime);
 }
@@ -116,7 +118,8 @@ void sendSiteOkResponse(int socket, char* contentType, int responseLength, char*
 	// printBytes(responseWithBody,finalLength);
 
 	//printf("[Handler] Bytes Written: %ld\n",written);
-	shutdown(socket,SHUT_WR);
+	shutdown(socket,SHUT_RDWR);
+	close(socket);
 
 	free(response);
 	free(responseWithBody);

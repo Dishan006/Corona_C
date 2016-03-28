@@ -16,7 +16,7 @@ int main()
          perror("could not create the main server thread");
      }
 
-    char* command = NULL;
+
     while (1)
      {
          printf("\nServer:");
@@ -27,7 +27,7 @@ int main()
          {
              printf("Exit requested!!! \n");
              setStopIssued(1);
-             sleep(5);
+             //sleep(5);
              pthread_cancel(server_thread);
              break;
          }else
@@ -35,7 +35,6 @@ int main()
         	 printf("Unknown Command! \n");
          }
 
-         free(command);
      }
 
     pthread_join(server_thread, NULL);
